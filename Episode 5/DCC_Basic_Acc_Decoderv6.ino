@@ -1,18 +1,16 @@
-#include <DCC_Decoder.h>
+// Definitions
 /// For the servo stuff
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <EEPROM.h>
 
 // To do
-// 1. Store accessory state and set to last state on startup
-// 2. Deal with looping sound clip
-// 3. Check/Fix the wire receive function to make sure it will work with addresses of 99
+// 1. Deal with looping sound clip
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 // NOTE - this sketch asssumes the element number of the gAddresses array is the same as the DCC
-// address. This avoids the perfoprmance overhead of iterating through the array seeking the
-// correct element. If you wish to use a range of up to 16 consecutive DCC addresses starting
+// address. i.e DCC address 1 -16 for an adafruit servo shield. This avoids the performance overhead of iterating through the array seeking the
+// correct element. If you wish to use a range of consecutive DCC addresses starting
 // at a number higher than 1, the see the onreceive event below where you can handle this by
 // using an offset.
 ////////////////////////////////////////////////////////////////////////////////////////////////  
@@ -87,7 +85,9 @@ int           playbackClip;              // the clipNumber from mySounds[] being
 //
 void ConfigureDecoder()
 {
-   
+
+    int eepromState;
+    
     gAddresses[0].soundClip = 1;
     gAddresses[0].soundTriggered = false;
     gAddresses[0].durationMilli = 10;
@@ -229,6 +229,25 @@ void ConfigureDecoder()
     gAddresses[8].lastCommandHandled = true; 
     gAddresses[8].onMilli = 0;
     gAddresses[8].offMilli = 0; 
+
+    // set them to the state stored in Non volatile memory
+    // Iniatialised above to inactive so only change the ones that are active
+    for (int i=0; i <= (int)(sizeof(gAddresses)/sizeof(gAddresses[0])); i++)
+       {
+         eepromState = EEPROM.read(i);
+         #ifdef DEBUG
+           Serial.print(i);
+           Serial.print(":");
+           Serial.println(eepromState);
+         #endif
+         if (eepromState == 1)
+              {
+                gAddresses[i].targetState = 1;
+                gAddresses[i].sweepPos = gAddresses[i].sweepMax; 
+                
+              }  //end if
+         
+       }   //end for loop
     
 }
 
@@ -353,6 +372,9 @@ void handleCommand(int md, int myEnable)
                             Serial.println(" Handler changed target state to 1"); 
                             #endif 
 
+                            //Store the state to nonvolatile memory
+                            EEPROM.update(md, myEnable);
+
                             }else {                                //already has target state enabled so don't do anything
                               #ifdef DEBUG
                               Serial.print(md,DEC);
@@ -390,6 +412,9 @@ void handleCommand(int md, int myEnable)
                             Serial.print(md,DEC);
                             Serial.println("Handler Set target state to 0");
                             #endif
+
+                            //Store the state to nonvolatile memory
+                            EEPROM.update(md, myEnable);
 
                             }else {                                //already has target state disabled so don't do anything
                               #ifdef DEBUG
@@ -608,4 +633,3 @@ void loop()
 // end sketch
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
